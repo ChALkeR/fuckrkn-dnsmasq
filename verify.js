@@ -1,16 +1,30 @@
 const tls = require('tls');
 const fs = require('fs');
 
+function numberish(x) {
+  return (+x + '') === x ? +x : x;
+}
+
+function parseOpts(opts) {
+  return new Map(
+    (opts || '')
+      .split(/\s+/)
+      .filter(x => x)
+      .map(y => y.split(':'))
+      .map(([key, value]) => [key, numberish(value)])
+  );
+}
+
 const entries = fs
   .readFileSync('fuckrkn.conf', 'utf-8')
   .split("\n")
   .filter(x => x && !x.startsWith('#'))
-  .map(x => {
-    if (x.startsWith('address='))
-      return x.replace('=', '').split('/');
-    if (x.startsWith('host-record='))
-      return x.split(/[=,]/);
-  });
+  .map(x => x.replace('=/', '=').split(/[=,/#]/))
+  .map(x => x.map(y => y.trim()))
+  .map(([type, servername, host, opts]) => ({
+    type, servername, host,
+    opts: parseOpts(opts)
+  }));
 
 async function verify(host, servername) {
   return new Promise((accept, reject) => {
@@ -42,14 +56,14 @@ async function verify(host, servername) {
 }
 
 async function main() {
-  for (const [type, servername, host] of entries) {
-    switch (type) {
-      case 'address':
-        await verify(host, `www${servername}`);
-        break;
-      case 'host-record':
-        await verify(host, servername);
-        break;
+  for (const { type, servername, host, opts } of entries) {
+    if (!['address', 'host-record'].includes(type))
+      throw new Error(`Invalid type: ${type}`);
+    const domain = type === 'address' ? `www${servername}` : servername;
+    if (opts.has('tls') && !opts.get('tls')) {
+      console.log('Skipping', host, domain);
+    } else {
+      await verify(host, domain);
     }
   }
   console.log('Done!');
