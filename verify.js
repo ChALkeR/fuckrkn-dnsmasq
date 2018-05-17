@@ -1,6 +1,8 @@
 const tls = require('tls');
 const fs = require('fs');
 
+let status = true;
+
 function numberish(x) {
   return (+x + '') === x ? +x : x;
 }
@@ -34,6 +36,7 @@ async function verify(host, servername) {
       if (socket.authorized) {
         console.log(' OK, authorized');
       } else {
+        status = false;
         console.log(' FAIL, unauthorized');
       }
       socket.end();
@@ -41,10 +44,12 @@ async function verify(host, servername) {
     socket.setTimeout(3000);
     socket.on('data', () => {});
     socket.on('error', () => {
+      status = false;
       console.log(' FAIL, error');
       accept();
     })
     socket.on('timeout', () => {
+      status = false;
       console.log(' FAIL, timeout');
       socket.destroy();
       accept();
@@ -69,6 +74,12 @@ async function main() {
     }
   }
   console.log('Done!');
+  if (status) {
+    console.log('Everything is fine.');
+  } else {
+    console.log('There were failures.');
+    process.exitCode = -1;
+  }
 }
 
 main().catch(e => console.error(e));
