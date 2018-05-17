@@ -59,6 +59,8 @@ async function main() {
   for (const { type, servername, host, opts } of entries) {
     if (!['address', 'host-record'].includes(type))
       throw new Error(`Invalid type: ${type}`);
+    if (process.argv.length > 2 && !process.argv.includes(servername))
+      continue;
     const domain = type === 'address' ? `www${servername}` : servername;
     if (opts.has('tls') && !opts.get('tls')) {
       console.log('Skipping', host, domain);
